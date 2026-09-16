@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import Link from 'next/link';
 import { Product } from '@/types';
@@ -15,6 +17,9 @@ export function ProductCard({ product }: ProductCardProps) {
         <img
           src={product.imageUrl}
           alt={product.name}
+          onError={(e) => {
+            e.currentTarget.src = 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?q=80&w=900&auto=format&fit=crop';
+          }}
           style={{
             position: 'absolute',
             top: 0,

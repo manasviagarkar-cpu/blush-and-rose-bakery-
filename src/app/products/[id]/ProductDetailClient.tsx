@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Product } from '@/types';
 import { useCart } from '@/context/CartContext';
@@ -10,11 +10,17 @@ interface ProductDetailClientProps {
   product: Product;
 }
 
+const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?q=80&w=900&auto=format&fit=crop';
+
 export function ProductDetailClient({ product }: ProductDetailClientProps) {
   const { addItem } = useCart();
 
-  const allImages = [product.imageUrl, ...(product.galleryUrls || [])].filter(Boolean);
-  const [activeImage, setActiveImage] = useState<string>(allImages[0] || product.imageUrl);
+  const allImages = useMemo(() => {
+    const rawList = [product.imageUrl, ...(product.galleryUrls || [])].filter(Boolean);
+    return Array.from(new Set(rawList));
+  }, [product.imageUrl, product.galleryUrls]);
+
+  const [activeImage, setActiveImage] = useState<string>(allImages[0] || product.imageUrl || FALLBACK_IMAGE);
 
   const [selectedVariant, setSelectedVariant] = useState(
     product.variants.length > 0 ? product.variants[0] : null
@@ -73,6 +79,9 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
             <img
               src={activeImage}
               alt={product.name}
+              onError={(e) => {
+                e.currentTarget.src = FALLBACK_IMAGE;
+              }}
               style={{
                 position: 'absolute',
                 top: 0,
@@ -103,7 +112,14 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                     background: 'none',
                   }}
                 >
-                  <img src={img} alt={`Thumbnail ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img
+                    src={img}
+                    alt={`Thumbnail ${idx + 1}`}
+                    onError={(e) => {
+                      e.currentTarget.src = FALLBACK_IMAGE;
+                    }}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
                 </button>
               ))}
             </div>

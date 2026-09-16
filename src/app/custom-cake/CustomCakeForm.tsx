@@ -62,38 +62,38 @@ function CakeSVG({ tiers, frostingColor, designStyle, shape, cakeMessage, isEggl
   const decoration = DESIGN_DECORATION_MAP[designStyle] ?? 'florals';
   const numTiers = tiers === '3 Tiers' ? 3 : tiers === '2 Tiers' ? 2 : 1;
 
-  // Tier dimensions (bottom → top), correctly selected per tier count
+  // Tier dimensions (bottom → top)
   const tierDefs =
     numTiers === 3
       ? [
-          { w: 180, h: 54, rx: 6 },   // bottom
-          { w: 130, h: 44, rx: 6 },   // middle
-          { w:  86, h: 36, rx: 5 },   // top
+          { w: 180, h: 54, rx: shape === 'Square' ? 2 : 6 },   // bottom (tier 1 - largest)
+          { w: 130, h: 44, rx: shape === 'Square' ? 2 : 6 },   // middle (tier 2 - medium)
+          { w:  86, h: 36, rx: shape === 'Square' ? 2 : 5 },   // top (tier 3 - smallest)
         ]
       : numTiers === 2
       ? [
-          { w: 180, h: 54, rx: 6 },   // bottom
-          { w: 105, h: 40, rx: 5 },   // top
+          { w: 180, h: 54, rx: shape === 'Square' ? 2 : 6 },   // bottom (tier 1 - largest)
+          { w: 110, h: 42, rx: shape === 'Square' ? 2 : 5 },   // top (tier 2 - smaller)
         ]
       : [
-          { w: 180, h: 60, rx: 10 },  // single tier (wider & taller)
+          { w: 180, h: 60, rx: shape === 'Square' ? 2 : 10 },  // single tier
         ];
 
   const svgH = 280;
   const cx = 130; // horizontal center
 
-  // Calculate y positions (stack from bottom, 3D gap = 10px perspective)
+  // Calculate y positions (stack bottom-up from the plate baseline)
   const baseY = svgH - 32; // plate baseline
   const tiers3D: { x: number; y: number; w: number; h: number; rx: number }[] = [];
   let curY = baseY;
-  for (let i = tierDefs.length - 1; i >= 0; i--) {
+  for (let i = 0; i < tierDefs.length; i++) {
     const td = tierDefs[i];
     curY -= td.h;
-    tiers3D.unshift({ x: cx - td.w / 2, y: curY, w: td.w, h: td.h, rx: td.rx });
+    tiers3D.push({ x: cx - td.w / 2, y: curY, w: td.w, h: td.h, rx: td.rx });
     curY -= 4; // gap between tiers
   }
 
-  const topTier = tiers3D[0];
+  const topTier = tiers3D[tiers3D.length - 1];
   const topCenterX = topTier.x + topTier.w / 2;
   const topCenterY = topTier.y;
 
@@ -136,9 +136,9 @@ function CakeSVG({ tiers, frostingColor, designStyle, shape, cakeMessage, isEggl
       <ellipse cx={cx} cy={baseY + 14} rx={100} ry={12} fill="url(#plateGrad)" opacity="0.9"/>
       <ellipse cx={cx} cy={baseY + 14} rx={100} ry={12} fill="none" stroke="#C8B89A" strokeWidth="1"/>
 
-      {/* === TIERS (back to front) === */}
+      {/* === TIERS (bottom to top) === */}
       {tiers3D.map((td, idx) => {
-        const isBottom = idx === tiers3D.length - 1;
+        const isBottom = idx === 0;
         const ellipseRy = td.rx * 0.45; // perspective ellipse height
 
         // Decorative band height on tier body
@@ -289,7 +289,7 @@ function CakeSVG({ tiers, frostingColor, designStyle, shape, cakeMessage, isEggl
 
       {/* === Eggless badge === */}
       {isEggless && (
-        <g transform={`translate(${cx + 78}, ${tiers3D[tiers3D.length - 1].y + 6})`}>
+        <g transform={`translate(${cx + 78}, ${tiers3D[0].y + 6})`}>
           <circle r="13" fill="#557A5A" opacity="0.92" />
           <text fontSize="10" textAnchor="middle" dy="4" fill="#FFFFFF">🌱</text>
         </g>

@@ -52,9 +52,9 @@ async function main() {
       shortDescription: 'Delicate rosewater sponge layered with tart organic raspberry compote and silky Swiss buttercream.',
       description: 'Our signature centerpiece creation. Layers of cloud-like chiffon sponge delicately infused with Persian organic rosewater, filled with tart homemade raspberry compote and wrapped in silky Swiss meringue buttercream. Adorned with candied rose petals and dried botanicals.',
       price: 58,
-      imageUrl: 'https://images.unsplash.com/photo-1535141192574-5d4897c13136?q=80&w=900&auto=format&fit=crop',
+      imageUrl: 'https://images.unsplash.com/photo-1565958011703-44f9829ba187?q=80&w=900&auto=format&fit=crop',
       galleryUrls: JSON.stringify([
-        'https://images.unsplash.com/photo-1535141192574-5d4897c13136?q=80&w=900&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?q=80&w=900&auto=format&fit=crop',
         'https://images.unsplash.com/photo-1588195538326-c5b1e9f80a1b?q=80&w=900&auto=format&fit=crop',
       ]),
       isAvailable: true,
@@ -142,7 +142,7 @@ async function main() {
       shortDescription: 'Six artisan cupcakes topped with hand-piped buttercream florets and freeze-dried berries.',
       description: 'An assortment of our favorite petite treats: 2 Madagascar Vanilla with Rosewater Buttercream, 2 Dark Chocolate with Espresso Cream, and 2 Red Velvet with Whipped Cream Cheese. Beautifully boxed with satin ribbon.',
       price: 28,
-      imageUrl: 'https://images.unsplash.com/photo-1587668178277-295251f900ce?q=80&w=900&auto=format&fit=crop',
+      imageUrl: 'https://images.unsplash.com/photo-1576618148400-f54bed99fcfd?q=80&w=900&auto=format&fit=crop',
       galleryUrls: JSON.stringify([]),
       isAvailable: true,
       isFeatured: true,
@@ -186,6 +186,13 @@ async function main() {
           variants: {
             create: variants,
           },
+        },
+      });
+    } else {
+      await prisma.product.update({
+        where: { slug: item.slug },
+        data: {
+          ...productFields,
         },
       });
     }
@@ -250,7 +257,7 @@ async function main() {
             cakeMessage: 'Happy 30th Camille!',
             specialInstructions: 'Please keep piping delicate and pastel blush.',
             allergies: 'None',
-            referenceImageUrl: 'https://images.unsplash.com/photo-1535141192574-5d4897c13136?q=80&w=900&auto=format&fit=crop',
+            referenceImageUrl: 'https://images.unsplash.com/photo-1565958011703-44f9829ba187?q=80&w=900&auto=format&fit=crop',
           },
         },
         statusHistory: {
