@@ -4,6 +4,8 @@ import { prisma } from '@/lib/db';
 import { ProductCard } from '@/components/domain/ProductCard';
 import { Product } from '@/types';
 
+export const dynamic = 'force-dynamic';
+
 export default async function HomePage() {
   const profile = await prisma.bakeryProfile.findUnique({
     where: { id: 'default' },

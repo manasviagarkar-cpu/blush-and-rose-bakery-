@@ -3,6 +3,8 @@ import { prisma } from '@/lib/db';
 import { Product } from '@/types';
 import { ProductCatalogueClient } from './ProductCatalogueClient';
 
+export const dynamic = 'force-dynamic';
+
 export default async function ProductsPage() {
   const productsDb = await prisma.product.findMany({
     include: { variants: true },

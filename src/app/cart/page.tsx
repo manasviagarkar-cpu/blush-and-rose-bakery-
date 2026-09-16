@@ -2,6 +2,8 @@ import React from 'react';
 import { prisma } from '@/lib/db';
 import { CartClient } from './CartClient';
 
+export const dynamic = 'force-dynamic';
+
 export default async function CartPage() {
   const profile = await prisma.bakeryProfile.findUnique({
     where: { id: 'default' },

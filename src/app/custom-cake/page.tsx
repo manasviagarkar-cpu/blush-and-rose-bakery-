@@ -2,6 +2,8 @@ import React from 'react';
 import { prisma } from '@/lib/db';
 import { CustomCakeForm } from './CustomCakeForm';
 
+export const dynamic = 'force-dynamic';
+
 export default async function CustomCakePage() {
   const profile = await prisma.bakeryProfile.findUnique({
     where: { id: 'default' },
