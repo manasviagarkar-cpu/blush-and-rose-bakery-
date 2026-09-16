@@ -1,0 +1,215 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model BakeryProfile {
+  id                   String   @id @default("default")
+  bakeryName           String   @default("Blush & Rose Bakery")
+  tagline              String   @default("Artisan cakes, handcrafted pastries & bespoke confections")
+  description          String   @default("Handcrafted with French butter, Belgian chocolate, and local organic flour. Creating timeless centerpiece cakes for your most cherished celebrations.")
+  address              String   @default("142 Rosewood Lane, Suite 4, Old Town")
+  phone                String   @default("+1 (555) 234-5678")
+  email                String   @default("orders@blushandrosebakery.com")
+  openingHours         String   @default("Tuesday - Saturday: 8:00 AM - 6:30 PM | Sunday: 9:00 AM - 3:00 PM | Monday: Closed")
+  pickupInstructions   String   @default("Please ring the doorbell at the side entrance. Have your order number and photo ID ready. Custom cakes are packed in reinforced transport boxes.")
+  noticeBanner         String?  @default("🌸 Welcome! Custom celebration cakes require a minimum 2 days advance notice.")
+  minAdvanceNoticeDays Int      @default(2)
+  depositPercentage    Int      @default(40)
+  cancellationPolicy   String   @default("Cancellations made 72 hours prior to pickup are eligible for a full deposit refund. Later cancellations are non-refundable due to perishable specialty ingredients.")
+  defaultSlotCapacity  Int      @default(4)
+  holidayDates         String   @default("[]") // JSON array of blocked dates YYYY-MM-DD
+  heroImageUrl         String   @default("https://images.unsplash.com/photo-1578985545062-69928b1d9587?q=80&w=1200&auto=format&fit=crop")
+  updatedAt            DateTime @updatedAt
+}
+
+model AdminUser {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String   @default("Head Baker")
+  role         String   @default("BAKER_OWNER")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Customer {
+  id            String   @id @default(uuid())
+  name          String
+  phone         String
+  email         String   @unique
+  internalNotes String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  orders        Order[]
+}
+
+model Product {
+  id               String           @id @default(uuid())
+  name             String
+  slug             String           @unique
+  category         String           @default("Celebration Cakes")
+  shortDescription String
+  description      String
+  price            Float
+  imageUrl         String
+  galleryUrls      String           @default("[]") // JSON array of strings
+  isAvailable      Boolean          @default(true)
+  isFeatured       Boolean          @default(false)
+  preparationTime  String           @default("24-48 Hours")
+  isEggless        Boolean          @default(false)
+  ingredients      String           @default("Flour, sugar, butter, eggs, milk, vanilla")
+  allergens        String           @default("Contains Gluten, Dairy, Eggs")
+  variants         ProductVariant[]
+  orderItems       OrderItem[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+}
+
+model ProductVariant {
+  id          String   @id @default(uuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name        String
+  price       Float
+  isAvailable Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model CustomCakeRequest {
+  id                  String   @id @default(uuid())
+  orderId             String   @unique
+  order               Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  size                String
+  shape               String   @default("Round")
+  tiers               String   @default("1 Tier")
+  flavor              String
+  filling             String   @default("Classic Vanilla Buttercream")
+  frostingType        String   @default("Swiss Meringue Buttercream")
+  frostingColor       String   @default("Warm Cream & Ivory")
+  designStyle         String   @default("Vintage Lambeth / Ruffle Piping")
+  toppings            String   @default("Fresh Florals & Macarons")
+  isEggless           Boolean  @default(false)
+  occasion            String   @default("Birthday")
+  cakeMessage         String?
+  specialInstructions String?
+  allergies           String?
+  referenceImageUrl   String?
+  createdAt           DateTime @default(now())
+}
+
+model Order {
+  id                  String              @id @default(uuid())
+  orderNumber         String              @unique
+  trackingToken       String              @unique
+  type                String              @default("STANDARD") // STANDARD | CUSTOM_CAKE
+  customerName        String
+  customerPhone       String
+  customerEmail       String
+  customerId          String?
+  customer            Customer?           @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  status              String              @default("New request")
+  pickupDate          String              // YYYY-MM-DD
+  pickupTimeSlot      String
+  totalAmount         Float
+  depositAmount       Float
+  balanceAmount       Float
+  paymentStatus       String              @default("PENDING") // PENDING | DEPOSIT_PAID | FULLY_PAID | FAILED | REFUNDED
+  customerNotes       String?
+  bakerNotes          String?
+  customerApproved    Boolean             @default(false)
+  proposedDesignNotes String?
+  customCakeRequest   CustomCakeRequest?
+  items               OrderItem[]
+  payments            Payment[]
+  statusHistory       OrderStatusHistory[]
+  referenceImages     ReferenceImage[]
+  notifications       Notification[]
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+}
+
+model OrderItem {
+  id                  String   @id @default(uuid())
+  orderId             String
+  order               Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId           String?
+  product             Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productName         String
+  variantName         String?
+  unitPrice           Float
+  quantity            Int      @default(1)
+  totalPrice          Float
+  cakeMessage         String?
+  specialInstructions String?
+  createdAt           DateTime @default(now())
+}
+
+model PickupSlot {
+  id          String   @id @default(uuid())
+  date        String   // YYYY-MM-DD
+  timeSlot    String
+  capacity    Int      @default(4)
+  bookedCount Int      @default(0)
+  isBlocked   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@unique([date, timeSlot])
+}
+
+model BlockedDate {
+  id        String   @id @default(uuid())
+  date      String   @unique // YYYY-MM-DD
+  reason    String   @default("Scheduled bakery maintenance / holiday")
+  createdAt DateTime @default(now())
+}
+
+model Payment {
+  id            String   @id @default(uuid())
+  orderId       String
+  order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  amount        Float
+  currency      String   @default("USD")
+  paymentMethod String   @default("RAZORPAY") // RAZORPAY | CASH | CARD_OFFLINE | MOCK_TEST
+  transactionId String?
+  status        String   @default("PENDING") // SUCCESS | FAILED | PENDING
+  isDeposit     Boolean  @default(true)
+  notes         String?
+  createdAt     DateTime @default(now())
+}
+
+model OrderStatusHistory {
+  id         String   @id @default(uuid())
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  fromStatus String?
+  toStatus   String
+  notes      String?
+  changedBy  String   @default("SYSTEM") // BAKER | CUSTOMER | SYSTEM
+  createdAt  DateTime @default(now())
+}
+
+model ReferenceImage {
+  id           String   @id @default(uuid())
+  orderId      String
+  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  url          String
+  originalName String?
+  size         Int?
+  createdAt    DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  orderId   String?
+  order     Order?   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  type      String   // REQUEST_RECEIVED | PRICE_SENT | DEPOSIT_PAID | READY_FOR_PICKUP etc.
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
