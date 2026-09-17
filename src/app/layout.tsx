@@ -4,6 +4,7 @@ import { CartProvider } from '@/context/CartContext';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { prisma } from '@/lib/db';
+import { fallbackBakeryProfile } from '@/lib/fallbackData';
 
 export const metadata: Metadata = {
   title: 'Blush & Rose Bakery | Artisan Cakes & Custom Bookings',
@@ -21,11 +22,12 @@ export default async function RootLayout({
       where: { id: 'default' },
     });
   } catch (e) {
-    console.error('Failed to load bakery profile for layout:', e);
+    console.warn('Failed to load bakery profile for layout, using fallback:', e);
   }
 
-  const bakeryName = profile?.bakeryName || 'Blush & Rose Bakery';
-  const noticeBanner = profile?.noticeBanner;
+  const activeProfile = profile || fallbackBakeryProfile;
+  const bakeryName = activeProfile.bakeryName || 'Blush & Rose Bakery';
+  const noticeBanner = activeProfile.noticeBanner;
 
   return (
     <html lang="en">

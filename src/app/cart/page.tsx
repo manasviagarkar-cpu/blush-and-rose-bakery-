@@ -2,12 +2,22 @@ import React from 'react';
 import { prisma } from '@/lib/db';
 import { CartClient } from './CartClient';
 
+import { fallbackBakeryProfile } from '@/lib/fallbackData';
+
 export const dynamic = 'force-dynamic';
 
 export default async function CartPage() {
-  const profile = await prisma.bakeryProfile.findUnique({
-    where: { id: 'default' },
-  });
+  let profile = null;
+  try {
+    profile = await prisma.bakeryProfile.findUnique({
+      where: { id: 'default' },
+    });
+  } catch (e) {
+    console.warn('Could not load bakeryProfile in CartPage, using fallback:', e);
+  }
+  if (!profile) {
+    profile = fallbackBakeryProfile as any;
+  }
 
   const depositPercentage = profile?.depositPercentage || 40;
   const minAdvanceDays = profile?.minAdvanceNoticeDays || 2;

@@ -3,26 +3,39 @@ import { prisma } from '@/lib/db';
 import { Product } from '@/types';
 import { ProductCatalogueClient } from './ProductCatalogueClient';
 
+import { fallbackProducts } from '@/lib/fallbackData';
+
 export const dynamic = 'force-dynamic';
 
 export default async function ProductsPage() {
-  const productsDb = await prisma.product.findMany({
-    include: { variants: true },
-    orderBy: { createdAt: 'desc' },
-  });
+  let products: Product[] = [];
+  try {
+    const productsDb = await prisma.product.findMany({
+      include: { variants: true },
+      orderBy: { createdAt: 'desc' },
+    });
 
-  const products: Product[] = productsDb.map((p) => ({
-    ...p,
-    galleryUrls: JSON.parse(p.galleryUrls || '[]'),
-    createdAt: p.createdAt.toISOString(),
-    updatedAt: p.updatedAt.toISOString(),
-    variants: p.variants.map((v) => ({
-      id: v.id,
-      name: v.name,
-      price: v.price,
-      isAvailable: v.isAvailable,
-    })),
-  }));
+    if (productsDb && productsDb.length > 0) {
+      products = productsDb.map((p) => ({
+        ...p,
+        galleryUrls: JSON.parse(p.galleryUrls || '[]'),
+        createdAt: p.createdAt.toISOString(),
+        updatedAt: p.updatedAt.toISOString(),
+        variants: p.variants.map((v) => ({
+          id: v.id,
+          name: v.name,
+          price: v.price,
+          isAvailable: v.isAvailable,
+        })),
+      }));
+    }
+  } catch (e) {
+    console.warn('Could not load products from DB in ProductsPage, using fallback:', e);
+  }
+
+  if (products.length === 0) {
+    products = fallbackProducts;
+  }
 
   return (
     <div className="container" style={{ paddingBottom: '4rem' }}>

@@ -2,12 +2,22 @@ import React from 'react';
 import { prisma } from '@/lib/db';
 import { CustomCakeForm } from './CustomCakeForm';
 
+import { fallbackBakeryProfile } from '@/lib/fallbackData';
+
 export const dynamic = 'force-dynamic';
 
 export default async function CustomCakePage() {
-  const profile = await prisma.bakeryProfile.findUnique({
-    where: { id: 'default' },
-  });
+  let profile = null;
+  try {
+    profile = await prisma.bakeryProfile.findUnique({
+      where: { id: 'default' },
+    });
+  } catch (e) {
+    console.warn('Could not load bakeryProfile in CustomCakePage, using fallback:', e);
+  }
+  if (!profile) {
+    profile = fallbackBakeryProfile as any;
+  }
 
   const minAdvanceDays = profile?.minAdvanceNoticeDays || 2;
   const holidayDates: string[] = JSON.parse(profile?.holidayDates || '[]');

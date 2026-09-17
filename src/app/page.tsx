@@ -4,31 +4,52 @@ import { prisma } from '@/lib/db';
 import { ProductCard } from '@/components/domain/ProductCard';
 import { Product } from '@/types';
 
+import { fallbackBakeryProfile, fallbackProducts as defaultProducts } from '@/lib/fallbackData';
+
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
-  const profile = await prisma.bakeryProfile.findUnique({
-    where: { id: 'default' },
-  });
+  let profile = null;
+  try {
+    profile = await prisma.bakeryProfile.findUnique({
+      where: { id: 'default' },
+    });
+  } catch (e) {
+    console.warn('Could not load bakeryProfile from DB in HomePage, using fallback:', e);
+  }
+  if (!profile) {
+    profile = fallbackBakeryProfile as any;
+  }
 
-  const featuredProductsDb = await prisma.product.findMany({
-    where: { isAvailable: true, isFeatured: true },
-    include: { variants: true },
-    take: 6,
-  });
+  let featuredProducts: Product[] = [];
+  try {
+    const featuredProductsDb = await prisma.product.findMany({
+      where: { isAvailable: true, isFeatured: true },
+      include: { variants: true },
+      take: 6,
+    });
 
-  const featuredProducts: Product[] = featuredProductsDb.map((p) => ({
-    ...p,
-    galleryUrls: JSON.parse(p.galleryUrls || '[]'),
-    createdAt: p.createdAt.toISOString(),
-    updatedAt: p.updatedAt.toISOString(),
-    variants: p.variants.map((v) => ({
-      id: v.id,
-      name: v.name,
-      price: v.price,
-      isAvailable: v.isAvailable,
-    })),
-  }));
+    if (featuredProductsDb && featuredProductsDb.length > 0) {
+      featuredProducts = featuredProductsDb.map((p) => ({
+        ...p,
+        galleryUrls: JSON.parse(p.galleryUrls || '[]'),
+        createdAt: p.createdAt.toISOString(),
+        updatedAt: p.updatedAt.toISOString(),
+        variants: p.variants.map((v) => ({
+          id: v.id,
+          name: v.name,
+          price: v.price,
+          isAvailable: v.isAvailable,
+        })),
+      }));
+    }
+  } catch (e) {
+    console.warn('Could not load featured products from DB in HomePage, using fallback:', e);
+  }
+
+  if (featuredProducts.length === 0) {
+    featuredProducts = defaultProducts.filter((p) => p.isFeatured);
+  }
 
   const bakeryName = profile?.bakeryName || 'Blush & Rose Bakery';
 
