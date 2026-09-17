@@ -8,17 +8,23 @@ export async function POST(req: Request) {
     const body = await req.json();
     const {
       orderId,
-      paymentId,
-      amount,
-      status = 'SUCCESS',
-      isMock = false,
       razorpayOrderId,
       razorpayPaymentId,
       razorpaySignature,
     } = body;
 
+    // isMock is intentionally NOT accepted from the public client.
+    // amount and status are NOT trusted from the browser — we use stored values.
+
     if (!orderId) {
-      return NextResponse.json({ error: 'Order ID is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Order ID is required.' }, { status: 400 });
+    }
+
+    if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
+      return NextResponse.json(
+        { error: 'Missing Razorpay payment verification parameters (razorpayOrderId, razorpayPaymentId, razorpaySignature).' },
+        { status: 400 }
+      );
     }
 
     const order = await prisma.order.findUnique({
@@ -27,44 +33,13 @@ export async function POST(req: Request) {
     });
 
     if (!order) {
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Order not found.' }, { status: 404 });
     }
 
-    // Server-side payment verification via adapter
-    const adapter = getPaymentAdapter();
-    const verification = await adapter.verifyPayment({
-      razorpayOrderId,
-      razorpayPaymentId: razorpayPaymentId || paymentId,
-      razorpaySignature,
-      isMock: Boolean(isMock),
-    });
-
-    if (!verification.verified || status !== 'SUCCESS') {
-      // Record failed attempt
-      await prisma.payment.create({
-        data: {
-          orderId: order.id,
-          amount: amount || order.depositAmount,
-          currency: 'USD',
-          paymentMethod: isMock ? 'MOCK_TEST' : 'RAZORPAY',
-          transactionId: verification.transactionId || `failed_${Date.now()}`,
-          status: 'FAILED',
-          isDeposit: true,
-          notes: verification.message || 'Payment verification failed',
-        },
-      });
-
-      return NextResponse.json(
-        { error: 'Payment verification failed', message: verification.message },
-        { status: 400 }
-      );
-    }
-
-    // Duplicate payment protection
-    const existingSuccess = order.payments.some(
-      (p) => p.status === 'SUCCESS' && p.transactionId === verification.transactionId
+    // Idempotency: if this Razorpay payment ID was already recorded as SUCCESS, return early
+    const existingSuccess = order.payments.find(
+      (p) => p.status === 'SUCCESS' && p.transactionId === razorpayPaymentId
     );
-
     if (existingSuccess) {
       return NextResponse.json({
         success: true,
@@ -73,21 +48,50 @@ export async function POST(req: Request) {
       });
     }
 
-    // Record verified payment
+    // Verify signature server-side using timing-safe HMAC
+    const adapter = getPaymentAdapter();
+    const verification = await adapter.verifyPayment({
+      razorpayOrderId,
+      razorpayPaymentId,
+      razorpaySignature,
+    });
+
+    if (!verification.verified) {
+      // Record the failed attempt without marking the order paid
+      await prisma.payment.create({
+        data: {
+          orderId: order.id,
+          amount: order.depositAmount,
+          currency: 'INR',
+          paymentMethod: 'RAZORPAY',
+          transactionId: razorpayPaymentId,
+          status: 'FAILED',
+          isDeposit: true,
+          notes: `Signature verification failed: ${verification.message}`,
+        },
+      });
+
+      return NextResponse.json(
+        { error: 'Payment verification failed.', message: verification.message },
+        { status: 400 }
+      );
+    }
+
+    // Record verified payment using the order's stored depositAmount (not browser-supplied amount)
     const paymentRecord = await prisma.payment.create({
       data: {
         orderId: order.id,
-        amount: amount || order.depositAmount,
-        currency: 'USD',
-        paymentMethod: isMock ? 'MOCK_TEST' : 'RAZORPAY',
+        amount: order.depositAmount,
+        currency: 'INR',
+        paymentMethod: 'RAZORPAY',
         transactionId: verification.transactionId,
         status: 'SUCCESS',
         isDeposit: true,
-        notes: isMock ? '[TEST MODE] Simulated deposit payment' : 'Verified via Razorpay',
+        notes: `Razorpay payment verified. Razorpay Order ID: ${razorpayOrderId}`,
       },
     });
 
-    // Update order status: Deposit paid orders are now officially CONFIRMED
+    // Update order status to CONFIRMED
     const updatedOrder = await prisma.order.update({
       where: { id: order.id },
       data: {
@@ -97,20 +101,20 @@ export async function POST(req: Request) {
           create: {
             fromStatus: order.status,
             toStatus: ORDER_STATUSES.CONFIRMED,
-            notes: `Deposit of $${amount || order.depositAmount} received (${isMock ? 'Test Mode' : 'Razorpay'}). Order confirmed.`,
+            notes: `Deposit of ₹${order.depositAmount} received via Razorpay. Order confirmed.`,
             changedBy: 'SYSTEM',
           },
         },
       },
     });
 
-    // Create Notification for baker
+    // Notify baker
     await prisma.notification.create({
       data: {
         orderId: order.id,
         type: 'DEPOSIT_PAID',
         title: `Deposit Paid #${order.orderNumber}`,
-        message: `${order.customerName} completed deposit payment of $${amount || order.depositAmount}. Order is now Confirmed!`,
+        message: `${order.customerName} completed deposit payment of ₹${order.depositAmount} via Razorpay. Order is now Confirmed!`,
       },
     });
 
@@ -122,6 +126,6 @@ export async function POST(req: Request) {
     });
   } catch (err: unknown) {
     console.error('Payment verification error:', err);
-    return NextResponse.json({ error: 'Server payment verification error' }, { status: 500 });
+    return NextResponse.json({ error: 'Server payment verification error.' }, { status: 500 });
   }
 }

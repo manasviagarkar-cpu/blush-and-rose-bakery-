@@ -79,7 +79,7 @@ export async function POST(req: Request) {
           create: [
             {
               amount: breakdown.deposit,
-              currency: 'USD',
+              currency: 'INR',
               paymentMethod: 'CASH',
               status: 'SUCCESS',
               isDeposit: true,

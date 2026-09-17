@@ -40,7 +40,7 @@ export async function POST(req: Request) {
           create: {
             fromStatus: order.status,
             toStatus: ORDER_STATUSES.PRICE_SENT,
-            notes: `Price quote of $${breakdown.total} (40% deposit: $${breakdown.deposit}) sent to customer for review`,
+            notes: `Price quote of ₹${breakdown.total} (40% deposit: ₹${breakdown.deposit}) sent to customer for review`,
             changedBy: 'BAKER',
           },
         },

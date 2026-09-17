@@ -1,100 +1,132 @@
 import React from 'react';
-import { notFound } from 'next/navigation';
+import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { formatCurrency } from '@/lib/utils';
-import { PaymentSimulationClient } from './PaymentSimulationClient';
 
 interface Props {
   searchParams: Promise<{
     orderId?: string;
-    paymentId?: string;
-    amount?: string;
-    isMock?: string;
+    razorpay_payment_link_id?: string;
+    razorpay_payment_link_reference_id?: string;
+    razorpay_payment_link_status?: string;
+    razorpay_payment_id?: string;
+    razorpay_signature?: string;
   }>;
 }
 
-export default async function PaymentCheckoutPage({ searchParams }: Props) {
-  const { orderId, paymentId, amount, isMock } = await searchParams;
+/**
+ * /payment/checkout
+ *
+ * This page is the Razorpay callback destination after a customer completes or
+ * cancels payment on the Razorpay-hosted payment page.
+ *
+ * It does NOT simulate payments or accept mock values.
+ * The order is confirmed by the Razorpay webhook (/api/payment/webhook), not here.
+ * This page simply shows the customer their order status and a tracking link.
+ */
+export default async function PaymentCallbackPage({ searchParams }: Props) {
+  const {
+    orderId,
+    razorpay_payment_link_status,
+    razorpay_payment_id,
+  } = await searchParams;
 
-  if (!orderId) {
-    notFound();
+  let order: { orderNumber: string; trackingToken: string; paymentStatus: string; customerName: string; depositAmount: number } | null = null;
+
+  if (orderId) {
+    order = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        orderNumber: true,
+        trackingToken: true,
+        paymentStatus: true,
+        customerName: true,
+        depositAmount: true,
+      },
+    });
   }
 
-  const order = await prisma.order.findUnique({
-    where: { id: orderId },
-  });
-
-  if (!order) {
-    notFound();
-  }
-
-  const payAmount = amount ? parseFloat(amount) : order.depositAmount;
+  const paymentPaid = razorpay_payment_link_status === 'paid';
 
   return (
     <div className="container" style={{ padding: '3rem 1.5rem 5rem', maxWidth: '640px' }}>
-      <div className="card" style={{ padding: '2.5rem 2rem' }}>
-        {/* Safe Test Mode Banner */}
-        <div style={{
-          backgroundColor: '#EFF6FF',
-          border: '1px solid #BFDBFE',
-          borderRadius: 'var(--radius-sm)',
-          padding: '0.85rem 1rem',
-          marginBottom: '1.5rem',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.75rem',
-        }}>
-          <span style={{ fontSize: '1.5rem' }}>🛡️</span>
-          <div>
-            <strong style={{ color: '#1E40AF', display: 'block', fontSize: '0.88rem' }}>
-              SAFE PAYMENT ADAPTER ({isMock === 'true' ? 'TEST MODE' : 'RAZORPAY ADAPTER'})
-            </strong>
-            <span style={{ fontSize: '0.78rem', color: '#3B82F6' }}>
-              Clearly marked safe test environment. Real payment funds will not be debited.
-            </span>
+      <div className="card" style={{ padding: '2.5rem 2rem', textAlign: 'center' }}>
+        {paymentPaid ? (
+          <>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>✅</div>
+            <h1 style={{ fontSize: '1.75rem', marginBottom: '0.5rem' }}>Payment Received</h1>
+            <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
+              Thank you! Your payment has been submitted to Razorpay. Your order will be confirmed
+              once the payment is verified (usually within a few minutes).
+            </p>
+            {razorpay_payment_id && (
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-light)', marginBottom: '1.5rem' }}>
+                Payment reference: <code>{razorpay_payment_id}</code>
+              </p>
+            )}
+          </>
+        ) : (
+          <>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔔</div>
+            <h1 style={{ fontSize: '1.75rem', marginBottom: '0.5rem' }}>Payment Status</h1>
+            <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
+              {razorpay_payment_link_status === 'cancelled'
+                ? 'Your payment was cancelled. No amount has been charged. You can pay again from your order tracking page.'
+                : 'Please check your order tracking page for the latest payment and order status.'}
+            </p>
+          </>
+        )}
+
+        {order && (
+          <div style={{
+            backgroundColor: 'var(--bg-surface)',
+            padding: '1.25rem',
+            borderRadius: 'var(--radius-sm)',
+            border: '1px solid var(--border-subtle)',
+            marginBottom: '2rem',
+            fontSize: '0.9rem',
+            textAlign: 'left',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Order:</span>
+              <strong>{order.orderNumber}</strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Customer:</span>
+              <span>{order.customerName}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Deposit Amount:</span>
+              <span>{formatCurrency(order.depositAmount)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Payment Status:</span>
+              <span style={{ fontWeight: 600, color: order.paymentStatus === 'DEPOSIT_PAID' ? 'var(--color-success, green)' : 'var(--text-main)' }}>
+                {order.paymentStatus.replace('_', ' ')}
+              </span>
+            </div>
           </div>
+        )}
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {order && (
+            <Link
+              href={`/track?orderId=${encodeURIComponent(order.orderNumber)}&token=${encodeURIComponent(order.trackingToken)}`}
+              className="btn btn-primary"
+              style={{ textAlign: 'center' }}
+            >
+              View Order Status →
+            </Link>
+          )}
+          <Link href="/" className="btn btn-secondary btn-sm" style={{ textAlign: 'center' }}>
+            Return to Bakery Home
+          </Link>
         </div>
 
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <span style={{ fontSize: '0.82rem', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--color-primary)', fontWeight: 600 }}>
-            Blush & Rose Bakery Checkout
-          </span>
-          <h2 style={{ fontSize: '1.75rem', marginTop: '0.25rem' }}>
-            Pay Order Deposit
-          </h2>
-          <div style={{ fontSize: '2.25rem', fontWeight: 700, fontFamily: 'var(--font-serif)', color: 'var(--text-main)', marginTop: '0.5rem' }}>
-            {formatCurrency(payAmount)}
-          </div>
-        </div>
-
-        {/* Order Details Mini-Card */}
-        <div style={{ backgroundColor: 'var(--bg-surface)', padding: '1.25rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', marginBottom: '2rem', fontSize: '0.9rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-            <span style={{ color: 'var(--text-muted)' }}>Order Reference:</span>
-            <strong>{order.orderNumber}</strong>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-            <span style={{ color: 'var(--text-muted)' }}>Customer:</span>
-            <span>{order.customerName}</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-            <span style={{ color: 'var(--text-muted)' }}>Total Cake Price:</span>
-            <span>{formatCurrency(order.totalAmount)}</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-primary)', fontWeight: 600 }}>
-            <span>Deposit Amount Due:</span>
-            <span>{formatCurrency(payAmount)}</span>
-          </div>
-        </div>
-
-        {/* Interactive Payment Simulator Form */}
-        <PaymentSimulationClient
-          orderId={order.id}
-          orderNumber={order.orderNumber}
-          trackingToken={order.trackingToken}
-          paymentId={paymentId || `mock_${Date.now()}`}
-          amount={payAmount}
-        />
+        <p style={{ marginTop: '2rem', fontSize: '0.8rem', color: 'var(--text-light)' }}>
+          Payment processing and order confirmation are handled securely by Razorpay.
+          If you have concerns, contact us with your order number.
+        </p>
       </div>
     </div>
   );

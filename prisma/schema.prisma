@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -173,7 +173,7 @@ model Payment {
   orderId       String
   order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   amount        Float
-  currency      String   @default("USD")
+  currency      String   @default("INR")
   paymentMethod String   @default("RAZORPAY") // RAZORPAY | CASH | CARD_OFFLINE | MOCK_TEST
   transactionId String?
   status        String   @default("PENDING") // SUCCESS | FAILED | PENDING

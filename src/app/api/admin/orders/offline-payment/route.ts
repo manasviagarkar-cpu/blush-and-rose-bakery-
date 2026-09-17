@@ -30,7 +30,7 @@ export async function POST(req: Request) {
       data: {
         orderId: order.id,
         amount: Number(amount),
-        currency: 'USD',
+        currency: 'INR',
         paymentMethod,
         transactionId: `offline_${paymentMethod.toLowerCase()}_${Date.now()}`,
         status: 'SUCCESS',
@@ -65,7 +65,7 @@ export async function POST(req: Request) {
           create: {
             fromStatus: order.status,
             toStatus: newOrderStatus,
-            notes: `Offline payment of $${amount} (${paymentMethod}) recorded by ${session.name}`,
+            notes: `Offline payment of ₹${amount} (${paymentMethod}) recorded by ${session.name}`,
             changedBy: 'BAKER',
           },
         },

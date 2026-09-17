@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('admin@blushrose.com');
-  const [password, setPassword] = useState('admin123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -99,11 +99,7 @@ export default function AdminLoginPage() {
           </button>
         </form>
 
-        <div style={{ marginTop: '1.75rem', padding: '0.85rem', backgroundColor: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-          <strong>Initial Demo Credentials:</strong>
-          <div style={{ marginTop: '2px' }}>Email: <code>admin@blushrose.com</code></div>
-          <div>Password: <code>admin123</code></div>
-        </div>
+
       </div>
     </div>
   );

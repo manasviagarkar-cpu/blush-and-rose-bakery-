@@ -51,7 +51,7 @@ export async function POST(req: Request) {
         orderId: order.id,
         type: 'PRICE_APPROVAL_REQUIRED',
         title: `Quote Approved for #${order.orderNumber}`,
-        message: `${order.customerName} approved the design and quotation of $${order.totalAmount}. Deposit pending.`,
+        message: `${order.customerName} approved the design and quotation of ₹${order.totalAmount}. Deposit pending.`,
       },
     });
 

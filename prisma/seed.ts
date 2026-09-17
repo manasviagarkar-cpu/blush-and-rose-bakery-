@@ -31,17 +31,23 @@ async function main() {
   });
 
   // 2. Admin User
-  const passwordHash = await bcrypt.hash('admin123', 10);
-  await prisma.adminUser.upsert({
-    where: { email: 'admin@blushrose.com' },
-    update: { passwordHash },
-    create: {
-      email: 'admin@blushrose.com',
-      passwordHash,
-      name: 'Clara Bennett',
-      role: 'BAKER_OWNER',
-    },
-  });
+  const adminSeedPassword = process.env.ADMIN_SEED_PASSWORD;
+  if (adminSeedPassword) {
+    const passwordHash = await bcrypt.hash(adminSeedPassword, 12);
+    await prisma.adminUser.upsert({
+      where: { email: 'admin@blushrose.com' },
+      update: { passwordHash },
+      create: {
+        email: 'admin@blushrose.com',
+        passwordHash,
+        name: 'Clara Bennett',
+        role: 'BAKER_OWNER',
+      },
+    });
+    console.log('✅ Admin user configured with ADMIN_SEED_PASSWORD.');
+  } else {
+    console.warn('⚠️ ADMIN_SEED_PASSWORD environment variable not set. Skipping admin user creation to avoid default credentials.');
+  }
 
   // 3. Products
   const productsData = [
@@ -328,12 +334,12 @@ async function main() {
           create: [
             {
               amount: 23.2,
-              currency: 'USD',
-              paymentMethod: 'MOCK_TEST',
-              transactionId: 'mock_dep_tx_8831',
+              currency: 'INR',
+              paymentMethod: 'RAZORPAY',
+              transactionId: 'rzp_dep_tx_8831',
               status: 'SUCCESS',
               isDeposit: true,
-              notes: '40% deposit paid online via Test Mode',
+              notes: '40% deposit paid online via Razorpay',
             },
           ],
         },

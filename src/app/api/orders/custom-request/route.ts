@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { ORDER_STATUSES } from '@/lib/constants';
-import { generateOrderNumber, generateTrackingToken, isValidBookingDate, calculatePaymentBreakdown } from '@/lib/utils';
+import { generateOrderNumber, generateTrackingToken, isValidBookingDate } from '@/lib/utils';
 import { validateCustomCakeRequest } from '@/lib/validators';
 
 export async function POST(req: Request) {
@@ -28,7 +28,6 @@ export async function POST(req: Request) {
       specialInstructions = '',
       allergies = '',
       referenceImageUrl,
-      estimatedBasePrice = 65,
     } = body;
 
     // 1. Validation
@@ -48,17 +47,28 @@ export async function POST(req: Request) {
 
     // 2. Validate bakery profile rules
     const profile = await prisma.bakeryProfile.findUnique({ where: { id: 'default' } });
-    const minAdvanceDays = profile?.minAdvanceNoticeDays || 2;
-    const holidayDates: string[] = JSON.parse(profile?.holidayDates || '[]');
-    const depositPercentage = profile?.depositPercentage || 40;
+    const minAdvanceDays = profile?.minAdvanceNoticeDays ?? 2;
+    const holidayDates: string[] = JSON.parse(profile?.holidayDates ?? '[]');
 
     const dateCheck = isValidBookingDate(pickupDate, minAdvanceDays, holidayDates);
     if (!dateCheck.valid) {
       return NextResponse.json({ error: dateCheck.reason }, { status: 400 });
     }
 
-    // 3. Compute initial estimated breakdown (baker will confirm/adjust final price)
-    const breakdown = calculatePaymentBreakdown(estimatedBasePrice, depositPercentage);
+    // 3. Sanitize reference image URL — accept only safe http/https URLs
+    let safeReferenceImageUrl: string | null = null;
+    if (referenceImageUrl && typeof referenceImageUrl === 'string') {
+      const trimmed = referenceImageUrl.trim();
+      if (
+        trimmed.length > 0 &&
+        trimmed.length <= 2048 &&
+        /^https?:\/\//i.test(trimmed)
+      ) {
+        safeReferenceImageUrl = trimmed;
+      }
+      // javascript:, data:, and other schemes are silently dropped
+    }
+
     const orderNumber = generateOrderNumber();
     const trackingToken = generateTrackingToken();
 
@@ -66,7 +76,6 @@ export async function POST(req: Request) {
     let customer = await prisma.customer.findUnique({
       where: { email: customerEmail.trim().toLowerCase() },
     });
-
     if (!customer) {
       customer = await prisma.customer.create({
         data: {
@@ -78,6 +87,8 @@ export async function POST(req: Request) {
     }
 
     // 5. Create Order with status AWAITING_BAKER_REVIEW
+    //    Price is intentionally set to 0 — only the baker can set the final price.
+    //    The browser-supplied estimatedBasePrice is deliberately NOT used here.
     const order = await prisma.order.create({
       data: {
         orderNumber,
@@ -90,9 +101,9 @@ export async function POST(req: Request) {
         status: ORDER_STATUSES.AWAITING_BAKER_REVIEW,
         pickupDate,
         pickupTimeSlot,
-        totalAmount: breakdown.total,
-        depositAmount: breakdown.deposit,
-        balanceAmount: breakdown.balance,
+        totalAmount: 0,
+        depositAmount: 0,
+        balanceAmount: 0,
         paymentStatus: 'PENDING',
         customerNotes: specialInstructions,
         customerApproved: false,
@@ -112,7 +123,7 @@ export async function POST(req: Request) {
             cakeMessage,
             specialInstructions,
             allergies,
-            referenceImageUrl,
+            referenceImageUrl: safeReferenceImageUrl,
           },
         },
         statusHistory: {
@@ -140,7 +151,7 @@ export async function POST(req: Request) {
         orderId: order.id,
         type: 'REQUEST_RECEIVED',
         title: `Custom Cake Request #${order.orderNumber}`,
-        message: `${customerName} submitted a ${tiers} (${size}) custom request for ${pickupDate}.`,
+        message: `${customerName} submitted a ${tiers} (${size}) custom ${flavor} cake request for ${pickupDate}.`,
       },
     });
 
