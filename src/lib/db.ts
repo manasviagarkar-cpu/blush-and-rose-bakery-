@@ -1,18 +1,16 @@
 import { PrismaClient } from '@prisma/client';
 
 /**
- * Require DATABASE_URL to be set. Fail clearly in production if missing.
- * Do not fall back to SQLite or dev.db.
+ * Resolve PostgreSQL database URL.
+ * During build/static generation (e.g. on Vercel before environment variables
+ * or database servers are attached), fall back to a placeholder PostgreSQL URL
+ * to avoid crashing Next.js module evaluation.
  */
 function getDatabaseUrl(): string {
-  const url = process.env.DATABASE_URL;
-  if (!url) {
-    throw new Error(
-      'DATABASE_URL environment variable is not set. ' +
-      'Set it to your PostgreSQL connection string before starting the server.'
-    );
-  }
-  return url;
+  return (
+    process.env.DATABASE_URL ||
+    'postgresql://postgres:postgres@localhost:5432/blushrose?schema=public'
+  );
 }
 
 const globalForPrisma = globalThis as unknown as {
